@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:image/image.dart' as img;
 
 void main() {
   runApp(const MyApp());
@@ -7,117 +11,197 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: '1-Point Perspective Drawing',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
       initialRoute: '/',
       routes: {
-        '/': (context) => const MyHomePage(title: 'Flutter Demo Home Page'),
+        '/': (context) => const PerspectiveDrawingScreen(),
       },
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class PerspectiveDrawingScreen extends StatefulWidget {
+  const PerspectiveDrawingScreen({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<PerspectiveDrawingScreen> createState() => _PerspectiveDrawingScreenState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _PerspectiveDrawingScreenState extends State<PerspectiveDrawingScreen> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('1-Point Perspective Room Interior'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: _exportAsImage,
+            tooltip: 'Export as PNG',
+          ),
+        ],
+      ),
+      body: Row(
+        children: [
+          // Drawing area
+          Expanded(
+            flex: 3,
+            child: Container(
+              color: Colors.white,
+              child: const PerspectivePainter(),
+            ),
+          ),
+          // Text area
+          Expanded(
+            flex: 1,
+            child: Container(
+              padding: const EdgeInsets.all(16.0),
+              color: Colors.grey[100],
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Title: 1 Point Perspective Drawing',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 8),
+                  Text('Name: __________'),
+                  SizedBox(height: 8),
+                  Text('Class: BSc Animation & VFX'),
+                  SizedBox(height: 8),
+                  Text('Software: Adobe Illustrator'),
+                  SizedBox(height: 8),
+                  Text('Tools Used: Line Tool, Rectangle Tool, Pen Tool'),
+                  SizedBox(height: 16),
+                  Text(
+                    'Concept: In one point perspective, all lines converge to one vanishing point on the horizon line.',
+                    style: TextStyle(fontStyle: FontStyle.italic),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  Future<void> _exportAsImage() async {
+    try {
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      final size = const Size(595, 842); // A4 size in points (72 DPI)
+      const PerspectivePainter().paint(canvas, size);
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(size.width.toInt(), size.height.toInt());
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      final buffer = byteData!.buffer.asUint8List();
+
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/perspective_drawing.png');
+      await file.writeAsBytes(buffer);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Image saved to ${file.path}')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error saving image: $e')),
+      );
+    }
+  }
+}
+
+class PerspectivePainter extends CustomPainter {
+  const PerspectivePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.black
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke;
+
+    final centerX = size.width / 2;
+    final centerY = size.height / 2;
+
+    // Horizon Line
+    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), paint);
+
+    // Vanishing Point (just a small circle for visualization)
+    canvas.drawCircle(Offset(centerX, centerY), 5, paint);
+
+    // Front wall rectangle
+    final wallLeft = centerX - 150;
+    final wallRight = centerX + 150;
+    final wallTop = centerY - 100;
+    final wallBottom = centerY + 100;
+    canvas.drawRect(Rect.fromLTRB(wallLeft, wallTop, wallRight, wallBottom), paint);
+
+    // Perspective lines from corners to vanishing point
+    canvas.drawLine(Offset(wallLeft, wallTop), Offset(centerX, centerY), paint);
+    canvas.drawLine(Offset(wallRight, wallTop), Offset(centerX, centerY), paint);
+    canvas.drawLine(Offset(wallLeft, wallBottom), Offset(centerX, centerY), paint);
+    canvas.drawLine(Offset(wallRight, wallBottom), Offset(centerX, centerY), paint);
+
+    // Bed (simple rectangle on the left)
+    final bedLeft = wallLeft + 20;
+    final bedRight = bedLeft + 80;
+    final bedTop = centerY + 20;
+    final bedBottom = bedTop + 40;
+    canvas.drawRect(Rect.fromLTRB(bedLeft, bedTop, bedRight, bedBottom), paint);
+    // Bed perspective lines
+    canvas.drawLine(Offset(bedRight, bedTop), Offset(centerX, centerY), paint);
+    canvas.drawLine(Offset(bedRight, bedBottom), Offset(centerX, centerY), paint);
+
+    // Window (rectangle on the right)
+    final windowLeft = wallRight - 60;
+    final windowRight = wallRight - 20;
+    final windowTop = centerY - 40;
+    final windowBottom = centerY - 10;
+    canvas.drawRect(Rect.fromLTRB(windowLeft, windowTop, windowRight, windowBottom), paint);
+    // Window perspective lines
+    canvas.drawLine(Offset(windowRight, windowTop), Offset(centerX, centerY), paint);
+    canvas.drawLine(Offset(windowRight, windowBottom), Offset(centerX, centerY), paint);
+
+    // Door (rectangle in the middle)
+    final doorLeft = centerX - 30;
+    final doorRight = centerX + 30;
+    final doorTop = centerY + 10;
+    final doorBottom = centerY + 70;
+    canvas.drawRect(Rect.fromLTRB(doorLeft, doorTop, doorRight, doorBottom), paint);
+    // Door perspective lines
+    canvas.drawLine(Offset(doorRight, doorTop), Offset(centerX, centerY), paint);
+    canvas.drawLine(Offset(doorRight, doorBottom), Offset(centerX, centerY), paint);
+
+    // Table (small rectangle near bed)
+    final tableLeft = bedLeft;
+    final tableRight = tableLeft + 40;
+    final tableTop = bedBottom + 10;
+    final tableBottom = tableTop + 20;
+    canvas.drawRect(Rect.fromLTRB(tableLeft, tableTop, tableRight, tableBottom), paint);
+    // Table perspective lines
+    canvas.drawLine(Offset(tableRight, tableTop), Offset(centerX, centerY), paint);
+    canvas.drawLine(Offset(tableRight, tableBottom), Offset(centerX, centerY), paint);
+
+    // Carpet (larger rectangle on floor)
+    final carpetLeft = wallLeft + 50;
+    final carpetRight = wallRight - 50;
+    final carpetTop = centerY + 50;
+    final carpetBottom = centerY + 120;
+    canvas.drawRect(Rect.fromLTRB(carpetLeft, carpetTop, carpetRight, carpetBottom), paint);
+    // Carpet perspective lines
+    canvas.drawLine(Offset(carpetRight, carpetTop), Offset(centerX, centerY), paint);
+    canvas.drawLine(Offset(carpetRight, carpetBottom), Offset(centerX, centerY), paint);
   }
 
   @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text('$_counter', style: Theme.of(context).textTheme.headlineMedium),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
-    );
-  }
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
